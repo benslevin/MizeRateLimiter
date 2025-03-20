@@ -89,14 +89,3 @@ The implementation uses a sliding window approach which offers these advantages:
 - Provides better protection for downstream systems
 
 This approach is preferred over absolute windows (which reset at fixed intervals) for most API rate limiting scenarios.
-
-## Dependencies
-
-- .NET Core / .NET 5+ runtime
-- Microsoft.Extensions.DependencyInjection (for the example application)
-- Microsoft.Extensions.Hosting (for the example application)
-- Microsoft.Extensions.Logging (for the example application)
-
-## License
-
-[Specify license information here]
