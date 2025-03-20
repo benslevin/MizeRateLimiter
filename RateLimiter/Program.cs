@@ -9,7 +9,7 @@ builder.Services.AddSingleton<RateLimiter<string>>(sp =>
 {
     var timeProvider = sp.GetRequiredService<ITimeProvider>();
 
-    var rateLimits = new List<RateLimit>
+    var rateLimits = new []
     {
         new RateLimit(10, TimeSpan.FromSeconds(1)),
         new RateLimit(100, TimeSpan.FromMinutes(1)),
