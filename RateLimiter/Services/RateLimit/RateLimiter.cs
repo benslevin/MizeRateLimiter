@@ -1,24 +1,25 @@
-﻿namespace RateLimiter.Services
+﻿namespace RateLimiterProgram.Services
 {
     public class RateLimiter<TArg>
     {
         private readonly Func<TArg, Task> _action;
         private readonly List<IRateLimitStrategy> _rateLimitStrategies;
 
-        public RateLimiter (Func<TArg, Task> action, IEnumerable<RateLimit> rateLimits, ITimeProvider timeProvider)
+        public RateLimiter(Func<TArg, Task> action, IEnumerable<RateLimit> rateLimits, ITimeProvider timeProvider)
         {
-            _action = action;
+            _action = action ?? throw new ArgumentNullException(nameof(action));
+
+            if (rateLimits == null || !rateLimits.Any())
+                throw new ArgumentException("At least one rate limit must be provided.", nameof(rateLimits));
+
             _rateLimitStrategies = rateLimits
-                .Select(rl => new SlidingWindowRateLimit(rl, timeProvider))
+                .Select(rl => new SlidingWindowRateLimit(new List<RateLimit> { rl }, timeProvider))
                 .ToList<IRateLimitStrategy>();
         }
 
         public async Task Perform(TArg args)
         {
-            foreach (var strategy in _rateLimitStrategies)
-            {
-                await strategy.WaitForPermissionAsync();
-            }
+            await Task.WhenAll(_rateLimitStrategies.Select(strategy => strategy.WaitForPermissionAsync()));
             await _action(args);
         }
     }

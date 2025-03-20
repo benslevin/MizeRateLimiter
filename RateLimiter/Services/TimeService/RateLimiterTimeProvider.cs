@@ -1,4 +1,4 @@
-﻿namespace RateLimiter.Services
+﻿namespace RateLimiterProgram.Services
 {
     public class RateLimiterTimeProvider : ITimeProvider
     {
