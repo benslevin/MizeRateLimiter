@@ -1,14 +1,5 @@
-﻿namespace RateLimiter.Services
+﻿namespace RateLimiterProgram.Services
 {
-    public class RateLimit
-    {
-        public int MaxRequest { get; }
-        public TimeSpan TimeWindow { get; }
-
-        public RateLimit(int maxRequest, TimeSpan timeWindow)
-        {
-            MaxRequest = maxRequest;
-            TimeWindow = timeWindow;
-        }
-    }
+    public record RateLimit(int MaxRequest, TimeSpan TimeWindow);
+    
 }

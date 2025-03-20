@@ -1,7 +1,7 @@
-﻿namespace RateLimiter.Services
+﻿namespace RateLimiterProgram.Services
 {
-    public interface IRateLimitStrategy
+    public interface IRateLimiter<TArg>
     {
-        Task WaitForPermissionAsync(); 
+        Task Perform(TArg argument);
     }
 }
