@@ -4,6 +4,10 @@
 
 This project implements a thread-safe, multi-limit Rate Limiter in C# that allows controlled execution of actions according to specified rate limits. The Rate Limiter uses a sliding window approach to ensure smooth and accurate rate control.
 
+## Overview
+
+To consume the Implementation of this rate limiter use the NuGet provided in the `Output` folder in this Git repo - `RateLimiter.1.0.0.nupkg`.
+
 ## Features
 
 - Multiple simultaneous rate limits (e.g., 10/second, 100/minute, 1000/day)
@@ -21,6 +25,9 @@ This project implements a thread-safe, multi-limit Rate Limiter in C# that allow
 3. **RateLimit**: Record that defines a rate limit with maximum requests and time window.
 4. **ITimeProvider**: Interface for time providers, allowing for dependency injection and testability.
 5. **RateLimiterTimeProvider**: Default implementation of ITimeProvider that uses system time.
+6. **RateLimiterExtensions**: Includes the method to add ITimeProvider and Logger as services in your application.
+7. **IRateLimiterFactory**: Interface defining the factory for creating rate limiters with proper dependencies.
+8. **RateLimiterFactory**: Contains the Create() method to create your own Rate Limiter with your parameters.
 
 ### How It Works
 
@@ -42,30 +49,22 @@ The implementation uses a sliding window approach, which means:
 ## Usage Example
 
 ```csharp
-// Create rate limits: 10 per second, 100 per minute, 1000 per day
-var limits = new[]
+// Add your library's services
+builder.Services.AddRateLimiterServices();
+
+
+// Define rate limits for this specific use case
+var rateLimits = new[]
 {
     new RateLimit(10, TimeSpan.FromSeconds(1)),
-    new RateLimit(100, TimeSpan.FromMinutes(1)),
-    new RateLimit(1000, TimeSpan.FromDays(1))
+    new RateLimit(100, TimeSpan.FromMinutes(1))
 };
 
-// Create a rate limiter for string arguments
-var rateLimiter = new RateLimiter<string>(
-    async message => Console.WriteLine($"{DateTime.UtcNow}: {message}"),
-    limits,
-    new RateLimiterTimeProvider()
+// Create a rate limiter for this specific scenario
+var rateLimiter = _rateLimiterFactory.Create<string>(
+    async message => _logger.LogInformation("Processing: {Message}", message),
+    rateLimits
 );
-
-// Execute requests
-await rateLimiter.Perform("Hello, world!");
-
-// Execute multiple requests in parallel
-var tasks = Enumerable.Range(1, 20)
-    .Select(i => rateLimiter.Perform($"Request {i}"))
-    .ToArray();
-
-await Task.WhenAll(tasks);
 ```
 
 ## Testing
