@@ -1,4 +1,5 @@
-﻿using Moq;
+﻿using Microsoft.Extensions.Logging;
+using Moq;
 using RateLimiterProgram.Services;
 
 namespace RateLimiterTests
@@ -6,12 +7,16 @@ namespace RateLimiterTests
     public class RateLimiterTests
     {
         private Mock<ITimeProvider> _mockTimeProvider;
+        private readonly Mock<ILogger<RateLimiter<string>>> _mockLogger;
+        private readonly Mock<ILogger<RateLimiter<int>>> _mockLoggerInt;
         private DateTime _currentTime;
 
         public RateLimiterTests()
         {
             _currentTime = new DateTime(2025, 3, 20, 12, 0, 0);
             _mockTimeProvider = new Mock<ITimeProvider>();
+            _mockLogger = new Mock<ILogger<RateLimiter<string>>>();
+            _mockLoggerInt = new Mock<ILogger<RateLimiter<int>>>();
             _mockTimeProvider.Setup(tp => tp.Now).Returns(() => _currentTime);
             _mockTimeProvider.Setup(tp => tp.UtcNow).Returns(() => _currentTime.ToUniversalTime());
         }
@@ -24,7 +29,8 @@ namespace RateLimiterTests
             var rateLimiter = new RateLimiter<string>(
                 async (arg) => { executionCount++; await Task.CompletedTask; },
                 new[] { new RateLimit(3, TimeSpan.FromSeconds(10)) },
-                _mockTimeProvider.Object
+                _mockTimeProvider.Object,
+                 _mockLogger.Object
             );
 
             // Act - Execute up to the limit
@@ -72,7 +78,8 @@ namespace RateLimiterTests
                     new RateLimit(3, TimeSpan.FromSeconds(10)),  // 3 per 10 seconds
                     new RateLimit(5, TimeSpan.FromMinutes(1))    // 5 per minute
                 },
-                _mockTimeProvider.Object
+                _mockTimeProvider.Object,
+                _mockLogger.Object
             );
 
             // Act - Execute up to the first limit
@@ -128,7 +135,8 @@ namespace RateLimiterTests
             var rateLimiter = new RateLimiter<string>(
                 async (arg) => { executionCount++; await Task.CompletedTask; },
                 new[] { new RateLimit(3, TimeSpan.FromSeconds(10)) },
-                _mockTimeProvider.Object
+                _mockTimeProvider.Object,
+                _mockLogger.Object
             );
 
             // Act - Execute first request
@@ -181,7 +189,8 @@ namespace RateLimiterTests
             var rateLimiter = new RateLimiter<int>(
                 async (arg) => { executionCount++; await Task.CompletedTask; },
                 new[] { new RateLimit(5, TimeSpan.FromSeconds(10)) },
-                _mockTimeProvider.Object
+                _mockTimeProvider.Object,
+                _mockLoggerInt.Object
             );
 
             // Act - Launch 10 concurrent requests
@@ -219,7 +228,8 @@ namespace RateLimiterTests
             var rateLimiter = new RateLimiter<string>(
                 async (arg) => { executionCount++; await Task.CompletedTask; },
                 new[] { new RateLimit(3, TimeSpan.FromSeconds(5)) },
-                _mockTimeProvider.Object
+                _mockTimeProvider.Object,
+                _mockLogger.Object
             );
 
             // Act - Execute 3 requests at time t=0
