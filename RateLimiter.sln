@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RateLimiterProgram", "RateLimiter\RateLimiterProgram.csproj", "{1BA386F2-E3C5-43A7-B9D0-5741DBEBCC71}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RateLimiter", "RateLimiter\RateLimiter.csproj", "{1BA386F2-E3C5-43A7-B9D0-5741DBEBCC71}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RateLimiterTests", "RateLimiterTests\RateLimiterTests.csproj", "{9FFDB43A-1CA3-4A27-B961-408C1D150F9F}"
 EndProject

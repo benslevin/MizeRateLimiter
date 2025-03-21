@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 
 namespace RateLimiterProgram.Services
 {
-
     /// <summary>
     /// A rate limiter that enforces multiple rate limits using a sliding window approach.
     /// It ensures thread safety and delays execution if limits are exceeded.
@@ -64,32 +63,11 @@ namespace RateLimiterProgram.Services
                 try
                 {
                     DateTime now = _timeProvider.UtcNow;
-                    bool canExecute = true;
+                    CleanupAllExpiredEntries(now);
 
-                    foreach (var limit in _limits)
+                    if (CanExecuteRequest(now))
                     {
-                        var queue = _requestLogs[limit.TimeWindow];
-                        CleanupExpiredEntries(queue, limit.TimeWindow, now);
-                    }
-
-                    // Check if rate limit was exceeded
-                    foreach (var limit in _limits)
-                    {
-                        var queue = _requestLogs[limit.TimeWindow];
-                        if (queue.Count >= limit.MaxRequest)
-                        {
-                            _logger.LogWarning("Rate limit exceeded. Waiting before executing the action.");
-                            canExecute = false;
-                            break;
-                        }
-                    }
-
-                    if (canExecute)
-                    {
-                        foreach (var limit in _limits)
-                        {
-                            _requestLogs[limit.TimeWindow].Enqueue(now);
-                        }
+                        RecordRequestExecution(now);
                         return;
                     }
                 }
@@ -116,6 +94,50 @@ namespace RateLimiterProgram.Services
             {
                 queue.TryDequeue(out _);
                 _logger.LogDebug("Removed expired request timestamp: {Oldest}", oldest);
+            }
+        }
+
+        /// <summary>
+        /// Removes expired request entries from all time window queues.
+        /// </summary>
+        /// <param name="now">The current UTC timestamp.</param>
+        private void CleanupAllExpiredEntries(DateTime now)
+        {
+            foreach (var limit in _limits)
+            {
+                var queue = _requestLogs[limit.TimeWindow];
+                CleanupExpiredEntries(queue, limit.TimeWindow, now);
+            }
+        }
+
+        /// <summary>
+        /// Checks if a new request can be executed without exceeding rate limits.
+        /// </summary>
+        /// <param name="now">The current UTC timestamp.</param>
+        /// <returns>True if the request can be executed, false otherwise.</returns>
+        private bool CanExecuteRequest(DateTime now)
+        {
+            foreach (var limit in _limits)
+            {
+                var queue = _requestLogs[limit.TimeWindow];
+                if (queue.Count >= limit.MaxRequest)
+                {
+                    _logger.LogWarning("Rate limit exceeded. Waiting before executing the action.");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Records the execution of a request in all time window queues.
+        /// </summary>
+        /// <param name="now">The current UTC timestamp to record.</param>
+        private void RecordRequestExecution(DateTime now)
+        {
+            foreach (var limit in _limits)
+            {
+                _requestLogs[limit.TimeWindow].Enqueue(now);
             }
         }
     }
