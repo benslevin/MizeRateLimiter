@@ -30,10 +30,10 @@ namespace RateLimiterTests
                 async (arg) => { executionCount++; await Task.CompletedTask; },
                 new[] { new RateLimit(3, TimeSpan.FromSeconds(10)) },
                 _mockTimeProvider.Object,
-                 _mockLogger.Object
+                _mockLogger.Object
             );
 
-            // Act - Execute up to the limit
+            // Act
             for (int i = 0; i < 3; i++)
             {
                 await rateLimiter.Perform("test");
