@@ -1,13 +1,18 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RateLimiterProgram.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddSingleton<ITimeProvider, RateLimiterTimeProvider>();
+builder.Services.AddSingleton<ILoggerFactory, LoggerFactory>();
+builder.Services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
+
 builder.Services.AddSingleton<RateLimiter<string>>(sp =>
 {
     var timeProvider = sp.GetRequiredService<ITimeProvider>();
+    var logger = sp.GetRequiredService<ILogger<RateLimiter<string>>>();
 
     var rateLimits = new []
     {
@@ -19,11 +24,15 @@ builder.Services.AddSingleton<RateLimiter<string>>(sp =>
     return new RateLimiter<string>(
         async msg => Console.WriteLine($"{DateTime.UtcNow} : {msg}"),
         rateLimits,
-        timeProvider
+        timeProvider,
+        logger
     );
 });
 
 var app = builder.Build();
+await app.RunAsync();
+
+// Just for testing the rate limit functionallity
 var rateLimiter = app.Services.GetRequiredService<RateLimiter<string>>();
 
 var tasks = Enumerable.Range(1, 20)
