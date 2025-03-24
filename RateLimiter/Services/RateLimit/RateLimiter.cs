@@ -98,10 +98,8 @@ namespace RateLimiterProgram.Services
         /// </summary>
         private async Task ProcessNextRequestAsync()
         {
-            // Wait until rate limits allow execution
             await WaitForRateLimitAsync();
 
-            // Try to get the next request from the queue
             if (_pendingRequests.TryDequeue(out var requestItem))
             {
                 await ExecuteRequestAsync(requestItem);
@@ -116,16 +114,12 @@ namespace RateLimiterProgram.Services
         {
             try
             {
-                // Execute the action
                 _logger.LogInformation("Executing rate-limited request");
                 await _action(requestItem.Argument);
-
-                // Signal completion
                 requestItem.CompletionSource.TrySetResult(true);
             }
             catch (Exception ex)
             {
-                // If action execution fails, signal the error
                 _logger.LogError(ex, "Error executing rate-limited action");
                 requestItem.CompletionSource.TrySetException(ex);
             }
@@ -140,7 +134,6 @@ namespace RateLimiterProgram.Services
             {
                 _isProcessing = false;
 
-                // If new items were added while we were finishing, restart processing
                 if (!_pendingRequests.IsEmpty)
                 {
                     _isProcessing = true;
@@ -155,12 +148,13 @@ namespace RateLimiterProgram.Services
         /// </summary>
         private async Task WaitForRateLimitAsync()
         {
+            DateTime now;
             while (true)
             {
                 await _semaphore.WaitAsync();
                 try
                 {
-                    DateTime now = _timeProvider.UtcNow;
+                    now = _timeProvider.UtcNow;
                     CleanupAllExpiredEntries(now);
 
                     if (CanExecuteRequest(now))
@@ -174,7 +168,8 @@ namespace RateLimiterProgram.Services
                     _semaphore.Release();
                 }
 
-                await Task.Delay(100);
+                TimeSpan waitTime = GetEarliestExpirationWaitTime(now);
+                await Task.Delay(waitTime);
             }
         }
 
@@ -237,6 +232,30 @@ namespace RateLimiterProgram.Services
             {
                 _requestLogs[limit.TimeWindow].Enqueue(now);
             }
+        }
+
+        /// <summary>
+        /// Calculates the exact time until the earliest request expires.
+        /// </summary>
+        /// <param name="now">The current UTC timestamp to record.</param>
+        /// <returns></returns>
+        private TimeSpan GetEarliestExpirationWaitTime(DateTime now)
+        {
+            TimeSpan minWaitTime = TimeSpan.FromMilliseconds(100); // Default wait time
+
+            foreach (var limit in _limits)
+            {
+                if (_requestLogs[limit.TimeWindow].TryPeek(out DateTime oldest))
+                {
+                    TimeSpan remainingTime = (oldest + limit.TimeWindow) - now;
+                    if (remainingTime > TimeSpan.Zero && remainingTime < minWaitTime)
+                    {
+                        minWaitTime = remainingTime;
+                    }
+                }
+            }
+
+            return minWaitTime;
         }
     }
 }
