@@ -16,6 +16,10 @@ namespace RateLimiterProgram.Services
         private readonly ConcurrentDictionary<TimeSpan, ConcurrentQueue<DateTime>> _requestLogs;
         private readonly ILogger<RateLimiter<TArg>> _logger;
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+        private readonly ConcurrentQueue<RequestItem<TArg>> _pendingRequests = new ConcurrentQueue<RequestItem<TArg>>();
+        private Task _processingTask = null;
+        private readonly object _processingLock = new object();
+        private bool _isProcessing = false;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RateLimiter{TArg}"/> class.
@@ -46,9 +50,103 @@ namespace RateLimiterProgram.Services
         /// <param name="argument">The argument to be passed to the action.</param>
         public async Task Perform(TArg argument)
         {
+            var requestItem = new RequestItem<TArg>(argument);
+            _pendingRequests.Enqueue(requestItem);
+            EnsureProcessingTaskStarted();
+            await requestItem.CompletionSource.Task;
+        }
+
+        /// <summary>
+        /// Ensures a background task is running to process the queue of requests.
+        /// </summary>
+        private void EnsureProcessingTaskStarted()
+        {
+            lock (_processingLock)
+            {
+                if (!_isProcessing)
+                {
+                    _isProcessing = true;
+                    _processingTask = Task.Run(ProcessQueueAsync);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Continuously processes the queue of pending requests according to rate limits.
+        /// </summary>
+        private async Task ProcessQueueAsync()
+        {
+            try
+            {
+                while (!_pendingRequests.IsEmpty)
+                {
+                    await ProcessNextRequestAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in request processing task");
+            }
+            finally
+            {
+                HandleProcessingCompletion();
+            }
+        }
+
+        /// <summary>
+        /// Processes the next request in the queue if one is available.
+        /// </summary>
+        private async Task ProcessNextRequestAsync()
+        {
+            // Wait until rate limits allow execution
             await WaitForRateLimitAsync();
-            _logger.LogInformation("Waiting for rate limit before executing request.");
-            await _action(argument);
+
+            // Try to get the next request from the queue
+            if (_pendingRequests.TryDequeue(out var requestItem))
+            {
+                await ExecuteRequestAsync(requestItem);
+            }
+        }
+
+        /// <summary>
+        /// Executes a single request and signals its completion.
+        /// </summary>
+        /// <param name="requestItem">The request item to execute.</param>
+        private async Task ExecuteRequestAsync(RequestItem<TArg> requestItem)
+        {
+            try
+            {
+                // Execute the action
+                _logger.LogInformation("Executing rate-limited request");
+                await _action(requestItem.Argument);
+
+                // Signal completion
+                requestItem.CompletionSource.TrySetResult(true);
+            }
+            catch (Exception ex)
+            {
+                // If action execution fails, signal the error
+                _logger.LogError(ex, "Error executing rate-limited action");
+                requestItem.CompletionSource.TrySetException(ex);
+            }
+        }
+
+        /// <summary>
+        /// Handles the completion of the processing task and restarts if needed.
+        /// </summary>
+        private void HandleProcessingCompletion()
+        {
+            lock (_processingLock)
+            {
+                _isProcessing = false;
+
+                // If new items were added while we were finishing, restart processing
+                if (!_pendingRequests.IsEmpty)
+                {
+                    _isProcessing = true;
+                    _processingTask = Task.Run(ProcessQueueAsync);
+                }
+            }
         }
 
         /// <summary>
